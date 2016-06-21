@@ -1,0 +1,19 @@
+group 'com.nike.btowns'
+version '1.0-SNAPSHOT'
+
+apply plugin: 'java'
+apply plugin: 'idea'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+    maven {
+        url 'http://dynamodb-local.s3-website-us-west-2.amazonaws.com/release'
+    }
+}
+
+dependencies {
+    compile 'com.amazonaws:aws-java-sdk-bom:1.11.0'
+    compile 'com.amazonaws:aws-java-sdk-ec2:1.11.8'
+}
