@@ -24,44 +24,29 @@ import java.io.IOException;
 
 public class awsjavaEC2 {
 
+    private static final String SECURITY_GROUP = "btownsSG";
+    private static final String SG_DESC = "my security group";
+    private static final String KEY_NAME = "btownsKey";
+    private static final String AMI = "ami-d5c5d1e5";
+    private static final String AMI_TYPE = "t2.micro";
+    private static final String IP_RANGE = "0.0.0.0/0";
+    private static final String PROTOCOL = "tcp";
+    private static final Integer PORT = 22;
+
     public static void main(String [] args) throws IOException {
 
         AWSCredentials creds = getCreds();
         AmazonEC2Client ec2 = getEc2(creds);
-        CreateSecurityGroupRequest csgr = new CreateSecurityGroupRequest();
-        csgr.withGroupName("BtownsSecurityGroup").withDescription("My security group");
 
+        CreateSecurityGroupRequest csgRequest = createRequest(SECURITY_GROUP, SG_DESC);
+        ec2.createSecurityGroup(csgRequest);
 
-        CreateSecurityGroupResult createSecurityGroupResult =
-                ec2.createSecurityGroup(csgr);
+        IpPermission ipPerms = setIpPerms(IP_RANGE, PROTOCOL, PORT,PORT);
 
+        AuthorizeSecurityGroupIngressRequest authSGInReq = getAuthSGInReq(SECURITY_GROUP, ipPerms);
+        ec2.authorizeSecurityGroupIngress(authSGInReq);
 
-        IpPermission ipPermission =
-                new IpPermission();
-
-        ipPermission.withIpRanges("0.0.0.0/0")
-                .withIpProtocol("tcp")
-                .withFromPort(22)
-                .withToPort(22);
-
-        AuthorizeSecurityGroupIngressRequest authorizeSecurityGroupIngressRequest =
-                new AuthorizeSecurityGroupIngressRequest();
-
-        authorizeSecurityGroupIngressRequest.withGroupName("BtownsSecurityGroup")
-                .withIpPermissions(ipPermission);
-
-        ec2.authorizeSecurityGroupIngress(authorizeSecurityGroupIngressRequest);
-
-        CreateKeyPairRequest createKeyPairRequest = new CreateKeyPairRequest();
-
-        createKeyPairRequest.withKeyName("btownsKey");
-
-        CreateKeyPairResult createKeyPairResult =
-                ec2.createKeyPair(createKeyPairRequest);
-
-        KeyPair keyPair = new KeyPair();
-
-        keyPair = createKeyPairResult.getKeyPair();
+        KeyPair keyPair = createKPReq(KEY_NAME, ec2);
 
         String privateKey = keyPair.getKeyMaterial();
         System.out.println("KEY " + privateKey);
@@ -69,12 +54,12 @@ public class awsjavaEC2 {
         RunInstancesRequest runInstancesRequest =
                 new RunInstancesRequest();
 
-        runInstancesRequest.withImageId("ami-3df3a80d")
-                .withInstanceType("t2.micro")
+        runInstancesRequest.withImageId(AMI)
+                .withInstanceType(AMI_TYPE)
                 .withMinCount(1)
                 .withMaxCount(1)
-                .withKeyName("btownsKey")
-                .withSecurityGroups("BtownsSecurityGroup");
+                .withKeyName(KEY_NAME)
+                .withSecurityGroups(SECURITY_GROUP);
 
         RunInstancesResult runInstancesResult =
                 ec2.runInstances(runInstancesRequest);
@@ -98,5 +83,37 @@ public class awsjavaEC2 {
         return ec2;
     }
 
+    private static CreateSecurityGroupRequest createRequest(String name, String desc) {
+        CreateSecurityGroupRequest csgRequest = new CreateSecurityGroupRequest();
+        csgRequest.withGroupName(name).withDescription(desc);
+        return csgRequest;
+    }
 
+    private static IpPermission setIpPerms(String range, String protocol, Integer from, Integer to) {
+        IpPermission ipPerms =
+                new IpPermission();
+        ipPerms.withIpRanges(range)
+                .withIpProtocol(protocol)
+                .withFromPort(from)
+                .withToPort(to);
+        return ipPerms;
+    }
+
+    private static AuthorizeSecurityGroupIngressRequest getAuthSGInReq(String name, IpPermission perms) {
+        AuthorizeSecurityGroupIngressRequest authSGInReq =
+                new AuthorizeSecurityGroupIngressRequest();
+        authSGInReq.withGroupName(name)
+                .withIpPermissions(perms);
+        return authSGInReq;
+    }
+
+    private static KeyPair createKPReq(String name, AmazonEC2Client ec2) {
+        CreateKeyPairRequest createKPReq = new CreateKeyPairRequest();
+        createKPReq.withKeyName(name);
+        CreateKeyPairResult createKeyPairResult =
+                ec2.createKeyPair(createKPReq);
+        KeyPair keyPair = new KeyPair();
+        keyPair = createKeyPairResult.getKeyPair();
+        return keyPair;
+    }
 }
