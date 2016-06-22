@@ -19,34 +19,39 @@ import com.amazonaws.services.ec2.model.KeyPair;
 import com.amazonaws.services.ec2.model.RunInstancesRequest;
 import com.amazonaws.services.ec2.model.RunInstancesResult;
 
+import java.io.InputStream;
 import java.io.IOException;
+import java.util.Properties;
 
 
 public class awsjavaEC2 {
 
-    private static final String SECURITY_GROUP = "btownsSG";
-    private static final String SG_DESC = "my security group";
-    private static final String KEY_NAME = "btownsKey";
-    private static final String AMI = "ami-d5c5d1e5";
-    private static final String AMI_TYPE = "t2.micro";
-    private static final String IP_RANGE = "0.0.0.0/0";
-    private static final String PROTOCOL = "tcp";
-    private static final Integer PORT = 22;
+    private static final String PROPS = "config.properties";
 
     public static void main(String [] args) throws IOException {
+
+        Properties props = loadProps();
 
         AWSCredentials creds = getCreds();
         AmazonEC2Client ec2 = getEc2(creds);
 
-        CreateSecurityGroupRequest csgRequest = createRequest(SECURITY_GROUP, SG_DESC);
+        CreateSecurityGroupRequest csgRequest = createRequest(
+                props.getProperty("SECURITY_GROUP"),
+                props.getProperty("SG_DESC"));
         ec2.createSecurityGroup(csgRequest);
 
-        IpPermission ipPerms = setIpPerms(IP_RANGE, PROTOCOL, PORT,PORT);
+        IpPermission ipPerms = setIpPerms(
+                props.getProperty("IP_RANGE"),
+                props.getProperty("PROTOCOL"),
+                Integer.parseInt(props.getProperty("FROM")),
+                Integer.parseInt(props.getProperty("TO")));
 
-        AuthorizeSecurityGroupIngressRequest authSGInReq = getAuthSGInReq(SECURITY_GROUP, ipPerms);
+        AuthorizeSecurityGroupIngressRequest authSGInReq = getAuthSGInReq(
+                props.getProperty("SECURITY_GROUP"), ipPerms);
         ec2.authorizeSecurityGroupIngress(authSGInReq);
 
-        KeyPair keyPair = createKPReq(KEY_NAME, ec2);
+        KeyPair keyPair = createKPReq(
+                props.getProperty("KEY_NAME"), ec2);
 
         String privateKey = keyPair.getKeyMaterial();
         System.out.println("KEY " + privateKey);
@@ -54,16 +59,24 @@ public class awsjavaEC2 {
         RunInstancesRequest runInstancesRequest =
                 new RunInstancesRequest();
 
-        runInstancesRequest.withImageId(AMI)
-                .withInstanceType(AMI_TYPE)
+        runInstancesRequest.withImageId(
+                props.getProperty("AMI"))
+                .withInstanceType(props.getProperty("AMI_TYPE"))
                 .withMinCount(1)
                 .withMaxCount(1)
-                .withKeyName(KEY_NAME)
-                .withSecurityGroups(SECURITY_GROUP);
+                .withKeyName(props.getProperty("KEY_NAME"))
+                .withSecurityGroups(props.getProperty("SECURITY_GROUP"));
 
         RunInstancesResult runInstancesResult =
                 ec2.runInstances(runInstancesRequest);
 
+    }
+
+    private static Properties loadProps() throws IOException{
+        ClassLoader loader = Thread.currentThread().getContextClassLoader();
+        Properties props = new Properties();
+        InputStream propStream = loader.getResourceAsStream(PROPS);
+        props.load(propStream);
     }
 
     private static AWSCredentials getCreds() {
